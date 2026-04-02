@@ -80,50 +80,19 @@ public partial class MasterMemoryGenerator : IIncrementalGenerator
 
         var usingStrings = string.Join(Environment.NewLine, memoryTables.SelectMany(x => x.UsingStrings).Distinct().OrderBy(x => x, StringComparer.Ordinal));
 
-        var sharedUsing = usingStrings + Environment.NewLine + ("using " + usingNamespace + ".Tables;");
-        var sharedContexts = memoryTables.ToArray();
-
-        var builderTemplate = new DatabaseBuilderTemplate()
-        {
-            Namespace = usingNamespace,
-            PrefixClassName = prefixClassName,
-            Using = sharedUsing,
-            GenerationContexts = sharedContexts,
-        };
-        var databaseTemplate = new MemoryDatabaseTemplate()
-        {
-            Namespace = usingNamespace,
-            PrefixClassName = prefixClassName,
-            Using = sharedUsing,
-            GenerationContexts = sharedContexts,
-        };
-        var immutableBuilderTemplate = new ImmutableBuilderTemplate()
-        {
-            Namespace = usingNamespace,
-            PrefixClassName = prefixClassName,
-            Using = sharedUsing,
-            GenerationContexts = sharedContexts,
-        };
-        var resolverTemplate = new MessagePackResolverTemplate()
-        {
-            Namespace = usingNamespace,
-            PrefixClassName = prefixClassName,
-            Using = sharedUsing,
-            GenerationContexts = sharedContexts,
-        };
-        var metaDatabaseTemplate = new MetaMemoryDatabaseTemplate()
-        {
-            Namespace = usingNamespace,
-            PrefixClassName = prefixClassName,
-            Using = sharedUsing,
-            GenerationContexts = sharedContexts,
-        };
+        var builderTemplate = new DatabaseBuilderTemplate();
+        var databaseTemplate = new MemoryDatabaseTemplate();
+        var immutableBuilderTemplate = new ImmutableBuilderTemplate();
+        var resolverTemplate = new MessagePackResolverTemplate();
+        builderTemplate.Namespace = databaseTemplate.Namespace = immutableBuilderTemplate.Namespace = resolverTemplate.Namespace = usingNamespace;
+        builderTemplate.PrefixClassName = databaseTemplate.PrefixClassName = immutableBuilderTemplate.PrefixClassName = resolverTemplate.PrefixClassName = prefixClassName;
+        builderTemplate.Using = databaseTemplate.Using = immutableBuilderTemplate.Using = resolverTemplate.Using = (usingStrings + Environment.NewLine + ("using " + usingNamespace + ".Tables;"));
+        builderTemplate.GenerationContexts = databaseTemplate.GenerationContexts = immutableBuilderTemplate.GenerationContexts = resolverTemplate.GenerationContexts = memoryTables.ToArray();
 
         Log(AddSource(context, builderTemplate.ClassName, builderTemplate.TransformText()));
         Log(AddSource(context, immutableBuilderTemplate.ClassName, immutableBuilderTemplate.TransformText()));
         Log(AddSource(context, databaseTemplate.ClassName, databaseTemplate.TransformText()));
         Log(AddSource(context, resolverTemplate.ClassName, resolverTemplate.TransformText()));
-        Log(AddSource(context, metaDatabaseTemplate.ClassName, metaDatabaseTemplate.TransformText()));
 
         foreach (var generationContext in memoryTables)
         {
