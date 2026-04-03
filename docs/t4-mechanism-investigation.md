@@ -23,19 +23,52 @@ Template.cs                   ← 手動で書くプロパティ定義 (partial 
 
 ### 1. `.tt` ファイル — T4テンプレート本体
 
+T4 の構文は 3 種類に分類される：
+
+#### ① `<#@ directive #>` — ディレクティブ（テンプレート設定）
+
 ```
-<#= Using #>           ← プロパティの値を文字列として出力
-namespace <#= Namespace #>
-{
-<# foreach(var item in GenerationContexts) { #>  ← C#コードブロック（制御構文）
-    public ... Append(IEnumerable<<#= item.ClassName #>> dataSource) { ... }
-<# } #>
-}
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
 ```
 
-- `<#= expr #>` → 式を評価して文字列として出力
-- `<# code #>` → C#コードを直接実行（`foreach`、`if`等）
-- 上記以外のテキスト → そのまま出力文字列になる
+ディレクティブはテンプレートエンジン自体の設定を行う。出力テキストには**何も書き出さない**。
+
+| ディレクティブ | 効果 |
+|---|---|
+| `<#@ template ... #>` | 使用言語・デバッグ設定等を指定 |
+| `<#@ assembly name="..." #>` | 通常の T4 では参照アセンブリを追加するが、**プリプロセッサ方式では .csproj のプロジェクト参照が使われるため実質的に無視される** |
+| `<#@ import namespace="..." #>` | 生成される `.cs` プリプロセッサファイル内に `using` ディレクティブを追加する（出力テキストへの書き出しではない） |
+
+> **重要：** `<#@ import namespace="System.Linq" #>` は `TransformText()` が返す**出力テキスト**に `using System.Linq;` を書き出すのではなく、`TransformText()` メソッド自体を含む**生成クラスファイル**（`DatabaseBuilderTemplate.cs`）に `using System.Linq;` を追加する。これによりテンプレートの C# コードブロック内で `System.Linq` の型を使用できるようになる。
+
+#### ② `<#= expr #>` — 式ブロック（出力）
+
+```
+<#= Using #>
+namespace <#= Namespace #>
+```
+
+式の評価結果を出力テキストに文字列として書き出す。
+
+#### ③ `<# code #>` — コードブロック（制御）
+
+```
+<# foreach(var item in GenerationContexts) { #>
+    public ... Append(IEnumerable<<#= item.ClassName #>> dataSource) { ... }
+<# } #>
+```
+
+C# コードを直接実行する（`foreach`、`if` 等）。出力テキストへの書き出しは行わない。
+
+#### ④ 静的テキスト
+
+上記以外のテキストはそのまま出力文字列になる。
+
+---
 
 ### 2. `.cs` ファイル — T4プリプロセッサ出力
 
@@ -43,12 +76,13 @@ Visual Studio の `TextTemplatingFilePreprocessor` が `.tt` ファイルをビ�
 
 **`.tt` → `.cs` 変換の対応関係：**
 
-| `.tt` の記述 | `.cs` の `TransformText()` 内での変換結果 |
+| `.tt` の記述 | `.cs` への変換結果 |
 |---|---|
-| `<#= Using #>` | `this.Write(this.ToStringHelper.ToStringWithCulture(Using));` |
-| `namespace <#= Namespace #>` | `this.Write("namespace ");` + `this.Write(...Namespace...);` |
-| `<# foreach(...) { #>` | `foreach(...) {` （C#コードとしてインライン展開）|
-| 静的テキスト `"hello"` | `this.Write("hello");` |
+| `<#@ import namespace="System.Linq" #>` | クラスファイル冒頭に `using System.Linq;` が追加される（`TransformText()` の出力テキストではない） |
+| `<#= Using #>` | `TransformText()` 内: `this.Write(this.ToStringHelper.ToStringWithCulture(Using));` |
+| `namespace <#= Namespace #>` | `TransformText()` 内: `this.Write("namespace ");` + `this.Write(...Namespace...);` |
+| `<# foreach(...) { #>` | `TransformText()` 内: `foreach(...) {` （C#コードとしてインライン展開）|
+| 静的テキスト `"hello"` | `TransformText()` 内: `this.Write("hello");` |
 
 生成される `TransformText()` は最終的に `GenerationEnvironment.ToString()` を返す（StringBuilder の内容）。
 
